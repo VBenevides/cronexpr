@@ -1,12 +1,13 @@
 Golang Cron expression parser
 =============================
-Given a cron expression and a time stamp, you can get the next time stamp which satisfies the cron expression.
+
+Given a cron expression and a time stamp, you can get the next time stamp which satisfies the cron expression. This code is a fork of https://github.com/gorhill/cronexpr, now you can get the previous time stamp which satisfies the cron expression.
 
 In another project, I decided to use cron expression syntax to encode scheduling information. Thus this standalone library to parse and apply time stamps to cron expressions.
 
 The time-matching algorithm in this implementation is efficient, it avoids as much as possible to guess the next matching time stamp, a common technique seen in a number of implementations out there.
 
-There is also a companion command-line utility to evaluate cron time expressions: <https://github.com/gorhill/cronexpr/tree/master/cronexpr> (which of course uses this library).
+There is also a companion command-line utility to evaluate cron time expressions: <https://github.com/gorhill/cronexpr/tree/master/cronexpr> (which uses https://github.com/gorhill/cronexpr).
 
 Implementation
 --------------
@@ -72,20 +73,21 @@ Other details
 
 Install
 -------
-    go get github.com/gorhill/cronexpr
+    go get github.com/VBenevides/cronexpr
 
 Usage
 -----
 Import the library:
 
-    import "github.com/gorhill/cronexpr"
+    import "github.com/VBenevides/cronexpr"
     import "time"
 
 Simplest way:
 
     nextTime := cronexpr.MustParse("0 0 29 2 *").Next(time.Now())
+    prevTime := cronexpr.MustParse("0 0 29 2 *").Prev(time.Now())
 
-Assuming `time.Now()` is "2013-08-29 09:28:00", then `nextTime` will be "2016-02-29 00:00:00".
+Assuming `time.Now()` is "2013-08-29 09:28:00", then `nextTime` will be "2016-02-29 00:00:00" and `prevTime` will be "2012-02-29 00:00:00"
 
 You can keep the returned Expression pointer around if you want to reuse it:
 
@@ -116,13 +118,25 @@ which returns a slice of time.Time objects, containing the following time stamps
     2028-02-29 00:00:00
     2032-02-29 00:00:00
 
-The time zone of time values returned by `Next` and `NextN` is always the
+And if you query for `n` previous time stamps:
+
+    cronexpr.MustParse("0 0 29 2 *").PrevN(time.Now(), 5)
+
+which returns a slice of time.Time objects, containing the following time stamps (as of 2013-08-30):
+
+    2012-02-29 00:00:00
+    2008-02-29 00:00:00
+    2004-02-29 00:00:00
+    2000-02-29 00:00:00
+    1996-02-29 00:00:00
+
+The time zone of time values returned by `Next`, `NextN`, `Prev` and `PrevN` is always the
 time zone of the time value passed as argument, unless a zero time value is
 returned.
 
 API
 ---
-<http://godoc.org/github.com/gorhill/cronexpr>
+<https://pkg.go.dev/github.com/VBenevides/cronexpr>
 
 License
 -------
