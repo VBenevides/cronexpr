@@ -23,7 +23,7 @@ import (
 
 type crontimes struct {
 	from string
-	next string
+	to   string
 }
 
 type crontest struct {
@@ -32,7 +32,7 @@ type crontest struct {
 	times  []crontimes
 }
 
-var crontests = []crontest{
+var crontestsnext = []crontest{
 	// Seconds
 	{
 		"* * * * * * *",
@@ -197,8 +197,121 @@ var crontests = []crontest{
 	// TODO: more tests
 }
 
-func TestExpressions(t *testing.T) {
-	for _, test := range crontests {
+var crontestsprev = []crontest{
+	// Seconds
+	{
+		"* * * * * * *",
+		"2006-01-02 15:04:05",
+		[]crontimes{
+			{"2013-01-01 23:59:59", "2013-01-01 23:59:58"},
+			{"2013-01-01 23:59:00", "2013-01-01 23:58:59"},
+			{"2013-01-01 23:00:00", "2013-01-01 22:59:59"},
+			{"2013-01-02 00:00:00", "2013-01-01 23:59:59"},
+			{"2013-03-01 00:00:00", "2013-02-28 23:59:59"},
+			{"2016-03-01 00:00:00", "2016-02-29 23:59:59"},
+			{"2013-01-01 00:00:00", "2012-12-31 23:59:59"},
+		},
+	},
+
+	// every 5 Second
+	{
+		"*/5 * * * * * *",
+		"2006-01-02 15:04:05",
+		[]crontimes{
+			{"2013-01-01 23:59:59", "2013-01-01 23:59:55"},
+			{"2013-01-01 23:59:00", "2013-01-01 23:58:55"},
+			{"2013-01-01 23:00:00", "2013-01-01 22:59:55"},
+			{"2013-01-02 00:00:00", "2013-01-01 23:59:55"},
+			{"2013-03-01 00:00:00", "2013-02-28 23:59:55"},
+			{"2016-03-01 00:00:00", "2016-02-29 23:59:55"},
+			{"2013-01-01 00:00:00", "2012-12-31 23:59:55"},
+		},
+	},
+
+	// Minutes
+	{
+		"* * * * *",
+		"2006-01-02 15:04:05",
+		[]crontimes{
+			{"2013-01-01 23:59:59", "2013-01-01 23:59:00"},
+			{"2013-01-01 23:59:00", "2013-01-01 23:58:00"},
+			{"2013-01-01 23:00:00", "2013-01-01 22:59:00"},
+			{"2013-01-02 00:00:00", "2013-01-01 23:59:00"},
+			{"2013-03-01 00:00:00", "2013-02-28 23:59:00"},
+			{"2016-03-01 00:00:00", "2016-02-29 23:59:00"},
+			{"2013-01-01 00:00:00", "2012-12-31 23:59:00"},
+		},
+	},
+
+	// Minutes with interval
+	{
+		"17-43/5 * * * *",
+		"2006-01-02 15:04:05",
+		[]crontimes{
+			{"2013-01-01 23:59:59", "2013-01-01 23:42:00"},
+			{"2013-01-01 23:43:01", "2013-01-01 23:42:00"},
+			{"2013-01-01 23:38:00", "2013-01-01 23:37:00"},
+			{"2013-01-02 23:22:00", "2013-01-02 23:17:00"},
+			{"2013-03-01 23:12:00", "2013-03-01 22:42:00"},
+			{"2013-03-01 00:12:00", "2013-02-28 23:42:00"},
+			{"2016-03-01 00:05:00", "2016-02-29 23:42:00"},
+			{"2013-01-01 00:00:00", "2012-12-31 23:42:00"},
+		},
+	},
+
+	// Minutes interval, list
+	{
+		"15-30/4,55 * * * *",
+		"2006-01-02 15:04:05",
+		[]crontimes{
+			{"2013-01-01 23:59:59", "2013-01-01 23:55:00"},
+			{"2013-01-01 23:43:01", "2013-01-01 23:27:00"},
+			{"2013-01-01 23:23:00", "2013-01-01 23:19:00"},
+			{"2013-01-02 23:12:00", "2013-01-02 22:55:00"},
+			{"2013-03-01 23:19:00", "2013-03-01 23:15:00"},
+			{"2013-03-01 00:12:00", "2013-02-28 23:55:00"},
+			{"2016-03-01 00:14:59", "2016-02-29 23:55:00"},
+			{"2013-01-01 00:00:00", "2012-12-31 23:55:00"},
+		},
+	},
+
+	// Days of week
+	{
+		"0 0 * * MON",
+		"Mon 2006-01-02 15:04",
+		[]crontimes{
+			{"2024-11-02 00:12:34", "Mon 2024-10-28 00:00"},
+			{"2024-11-09 00:20:00", "Mon 2024-11-04 00:00"},
+			{"2025-01-01 00:30:00", "Mon 2024-12-30 00:00"},
+		},
+	},
+
+	{
+		"0 0 * * friday",
+		"Mon 2006-01-02 15:04",
+		[]crontimes{
+			{"2013-01-08 00:00:00", "Fri 2013-01-04 00:00"},
+			{"2013-02-02 00:00:00", "Fri 2013-02-01 00:00"},
+			{"2024-12-05 00:30:00", "Fri 2024-11-29 00:00"},
+		},
+	},
+
+	{
+		"0 0 * * 6,7",
+		"Mon 2006-01-02 15:04",
+		[]crontimes{
+			{"2013-01-07 00:00:00", "Sun 2013-01-06 00:00"},
+			{"2013-02-08 00:00:00", "Sun 2013-02-03 00:00"},
+			{"2014-01-04 23:59:59", "Sat 2014-01-04 00:00"},
+			{"2014-01-05 12:30:00", "Sun 2014-01-05 00:00"},
+		},
+	},
+
+	// // TODO: more tests
+}
+
+func TestExpressionsNext(t *testing.T) {
+	for _, test := range crontestsnext {
 		for _, times := range test.times {
 			from, _ := time.Parse("2006-01-02 15:04:05", times.from)
 			expr, err := Parse(test.expr)
@@ -207,8 +320,25 @@ func TestExpressions(t *testing.T) {
 			}
 			next := expr.Next(from)
 			nextstr := next.Format(test.layout)
-			if nextstr != times.next {
-				t.Errorf(`("%s").Next("%s") = "%s", got "%s"`, test.expr, times.from, times.next, nextstr)
+			if nextstr != times.to {
+				t.Errorf(`("%s").Next("%s") = "%s", got "%s"`, test.expr, times.from, times.to, nextstr)
+			}
+		}
+	}
+}
+
+func TestExpressionsPrev(t *testing.T) {
+	for _, test := range crontestsprev {
+		for _, times := range test.times {
+			from, _ := time.Parse("2006-01-02 15:04:05", times.from)
+			expr, err := Parse(test.expr)
+			if err != nil {
+				t.Errorf(`Parse("%s") returned "%s"`, test.expr, err.Error())
+			}
+			prev := expr.Prev(from)
+			prevstr := prev.Format(test.layout)
+			if prevstr != times.to {
+				t.Errorf(`("%s").Prev("%s") = "%s", got "%s"`, test.expr, times.from, times.to, prevstr)
 			}
 		}
 	}
@@ -259,6 +389,29 @@ func TestNextN(t *testing.T) {
 	}
 }
 
+func TestPrevN(t *testing.T) {
+	expected := []string{
+		"Sat, 29 Nov 2014 00:00:00",
+		"Sat, 30 Aug 2014 00:00:00",
+		"Sat, 31 May 2014 00:00:00",
+		"Sat, 29 Mar 2014 00:00:00",
+		"Sat, 30 Nov 2013 00:00:00",
+	}
+	from, _ := time.Parse("2006-01-02 15:04:05", "2014-11-30 08:44:30")
+	result := MustParse("0 0 * * 6#5").PrevN(from, uint(len(expected)))
+	if len(result) != len(expected) {
+		t.Errorf(`MustParse("0 0 * * 6#5").PrevN("2014-11-30 08:44:30", 5):\n"`)
+		t.Errorf(`  Expected %d returned time values but got %d instead`, len(expected), len(result))
+	}
+	for i, prev := range result {
+		prevStr := prev.Format("Mon, 2 Jan 2006 15:04:15")
+		if prevStr != expected[i] {
+			t.Errorf(`MustParse("0 0 * * 6#5").NextN("2013-09-02 08:44:30", 5):\n"`)
+			t.Errorf(`  result[%d]: expected "%s" but got "%s"`, i, expected[i], prevStr)
+		}
+	}
+}
+
 func TestNextN_every5min(t *testing.T) {
 	expected := []string{
 		"Mon, 2 Sep 2013 08:45:00",
@@ -269,6 +422,29 @@ func TestNextN_every5min(t *testing.T) {
 	}
 	from, _ := time.Parse("2006-01-02 15:04:05", "2013-09-02 08:44:32")
 	result := MustParse("*/5 * * * *").NextN(from, uint(len(expected)))
+	if len(result) != len(expected) {
+		t.Errorf(`MustParse("*/5 * * * *").NextN("2013-09-02 08:44:30", 5):\n"`)
+		t.Errorf(`  Expected %d returned time values but got %d instead`, len(expected), len(result))
+	}
+	for i, next := range result {
+		nextStr := next.Format("Mon, 2 Jan 2006 15:04:05")
+		if nextStr != expected[i] {
+			t.Errorf(`MustParse("*/5 * * * *").NextN("2013-09-02 08:44:30", 5):\n"`)
+			t.Errorf(`  result[%d]: expected "%s" but got "%s"`, i, expected[i], nextStr)
+		}
+	}
+}
+
+func TestPrevN_every5min(t *testing.T) {
+	expected := []string{
+		"Mon, 2 Sep 2013 09:05:00",
+		"Mon, 2 Sep 2013 09:00:00",
+		"Mon, 2 Sep 2013 08:55:00",
+		"Mon, 2 Sep 2013 08:50:00",
+		"Mon, 2 Sep 2013 08:45:00",
+	}
+	from, _ := time.Parse("2006-01-02 15:04:05", "2013-09-02 09:06:32")
+	result := MustParse("*/5 * * * *").PrevN(from, uint(len(expected)))
 	if len(result) != len(expected) {
 		t.Errorf(`MustParse("*/5 * * * *").NextN("2013-09-02 08:44:30", 5):\n"`)
 		t.Errorf(`  Expected %d returned time values but got %d instead`, len(expected), len(result))
@@ -338,5 +514,22 @@ func BenchmarkNext(b *testing.B) {
 		next = expr.Next(next)
 		next = expr.Next(next)
 		next = expr.Next(next)
+	}
+}
+
+func BenchmarkPrev(b *testing.B) {
+	exprs := make([]*Expression, benchmarkExpressionsLen)
+	for i := 0; i < benchmarkExpressionsLen; i++ {
+		exprs[i] = MustParse(benchmarkExpressions[i])
+	}
+	from := time.Now()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		expr := exprs[i%benchmarkExpressionsLen]
+		prev := expr.Prev(from)
+		prev = expr.Prev(prev)
+		prev = expr.Prev(prev)
+		prev = expr.Prev(prev)
+		prev = expr.Prev(prev)
 	}
 }

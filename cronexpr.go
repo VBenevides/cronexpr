@@ -264,3 +264,132 @@ func (expr *Expression) NextN(fromTime time.Time, n uint) []time.Time {
 	}
 	return nextTimes
 }
+
+/******************************************************************************/
+
+// Prev returns the closest time instant immediately preceding `fromTime` which
+// matches the cron expression `expr`.
+//
+// The `time.Location` of the returned time instant is the same as that of
+// `fromTime`.
+//
+// The zero value of time.Time is returned if no matching time instant exists
+// or if a `fromTime` is itself a zero value.
+func (expr *Expression) Prev(fromTime time.Time) time.Time {
+	// Special case
+	if fromTime.IsZero() {
+		return fromTime
+	}
+
+	// Since expr.nextSecond()-expr.nextMonth() expects that the
+	// supplied time stamp is a perfect match to the underlying cron
+	// expression, and since this function is an entry point where `fromTime`
+	// does not necessarily matches the underlying cron expression,
+	// we first need to ensure supplied time stamp matches
+	// the cron expression. If not, this means the supplied time
+	// stamp falls in between matching time stamps, thus we move
+	// to closest future matching immediately upon encountering a mismatching
+	// time stamp.
+
+	// year
+	v := fromTime.Year()
+	i := SearchIntsDescending(expr.yearList, v)
+	if i == len(expr.yearList) {
+		return time.Time{}
+	}
+	i = len(expr.yearList) - 1 - i
+	if v != expr.yearList[i] {
+		return expr.prevYear(fromTime)
+	}
+
+	// month
+	v = int(fromTime.Month())
+	i = SearchIntsDescending(expr.monthList, v)
+	if i == len(expr.monthList) {
+		return expr.prevYear(fromTime)
+	}
+	i = len(expr.monthList) - 1 - i
+	if v != expr.monthList[i] {
+		return expr.prevMonth(fromTime)
+	}
+
+	expr.actualDaysOfMonthList = expr.calculateActualDaysOfMonth(fromTime.Year(), int(fromTime.Month()))
+	if len(expr.actualDaysOfMonthList) == 0 {
+		return expr.prevMonth(fromTime)
+	}
+
+	// day of month
+	v = fromTime.Day()
+	i = SearchIntsDescending(expr.actualDaysOfMonthList, v)
+	if i == len(expr.actualDaysOfMonthList) {
+		return expr.prevMonth(fromTime)
+	}
+	i = len(expr.actualDaysOfMonthList) - 1 - i
+	if v != expr.actualDaysOfMonthList[i] {
+		return expr.prevDayOfMonth(fromTime)
+	}
+
+	// hour
+	v = fromTime.Hour()
+	i = SearchIntsDescending(expr.hourList, v)
+	if i == len(expr.hourList) {
+		return expr.prevDayOfMonth(fromTime)
+	}
+	i = len(expr.hourList) - 1 - i
+	if v != expr.hourList[i] {
+		return expr.prevHour(fromTime)
+	}
+
+	// minute
+	v = fromTime.Minute()
+	i = SearchIntsDescending(expr.minuteList, v)
+	if i == len(expr.minuteList) {
+		return expr.prevHour(fromTime)
+	}
+	i = len(expr.minuteList) - 1 - i
+	if v != expr.minuteList[i] {
+		return expr.prevMinute(fromTime)
+	}
+	// second
+	v = fromTime.Second()
+	i = SearchIntsDescending(expr.secondList, v)
+	if i == len(expr.secondList) {
+		return expr.prevMinute(fromTime)
+	}
+
+	// If we reach this point, there is nothing better to do
+	// than to move to the previous second
+
+	return expr.prevSecond(fromTime)
+}
+
+/******************************************************************************/
+
+// PrevN returns a slice of `n` closest time instants immediately preceding
+// `fromTime` which match the cron expression `expr`.
+//
+// The time instants in the returned slice are in chronological descending order.
+// The `time.Location` of the returned time instants is the same as that of
+// `fromTime`.
+//
+// A slice with len between [0-`n`] is returned, that is, if not enough existing
+// matching time instants exist, the number of returned entries will be less
+// than `n`.
+func (expr *Expression) PrevN(fromTime time.Time, n uint) []time.Time {
+	prevTimes := make([]time.Time, 0, n)
+	if n > 0 {
+		fromTime = expr.Prev(fromTime)
+		for {
+			if fromTime.IsZero() {
+				break
+			}
+			prevTimes = append(prevTimes, fromTime)
+			n -= 1
+			if n == 0 {
+				break
+			}
+			fromTime = expr.prevSecond(fromTime)
+		}
+	}
+	return prevTimes
+}
